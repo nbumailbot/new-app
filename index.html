@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Perfect Timing</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #0d0c12;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100vh;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* Yuqori Panel */
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 400px;
+            margin-top: 10px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: #5d5a68;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .title {
+            font-size: 14px;
+            letter-spacing: 4px;
+            font-weight: 700;
+            color: #8e8a9f;
+            text-transform: uppercase;
+        }
+
+        /* Statistika Paneli */
+        .stats-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px 5px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #5d5a68;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+            font-family: monospace;
+        }
+
+        .stat-box.combo-active {
+            border-color: #4ef2d2;
+            box-shadow: 0 0 10px rgba(78, 242, 210, 0.1);
+        }
+        .stat-box.combo-active .stat-value {
+            color: #4ef2d2;
+        }
+
+        /* O'yin maydoni va status */
+        .game-area {
+            width: 100%;
+            max-width: 400px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .feedback-text {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 40px;
+            height: 35px;
+            text-transform: uppercase;
+            transition: transform 0.1s ease;
+        }
+        .feedback-perfect { color: #4ef2d2; text-shadow: 0 0 15px rgba(78, 242, 210, 0.6); }
+        .feedback-good { color: #a4f7e6; text-shadow: 0 0 10px rgba(164, 247, 230, 0.4); }
+        .feedback-miss { color: #ff4a5a; text-shadow: 0 0 15px rgba(255, 74, 90, 0.5); }
+
+        canvas {
+            width: 100%;
+            height: 80px;
+            background: transparent;
+        }
+
+        .hint-text {
+            font-size: 10px;
+            color: #413f4c;
+            letter-spacing: 1px;
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+
+        /* Pastki Katta Tugma */
+        .tap-button {
+            width: 100%;
+            max-width: 400px;
+            background-color: #4ef2d2;
+            color: #0d0c12;
+            border: none;
+            border-radius: 16px;
+            padding: 20px;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 20px rgba(78, 242, 210, 0.3);
+            transition: background 0.1s;
+        }
+
+        .tap-button:active {
+            background-color: #3cdbc0;
+            transform: scale(0.99);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="btn-icon" onclick="tgClose()">❮</button>
+        <div class="title">Perfect Timing</div>
+        <button class="btn-icon" onclick="resetGame()">↺</button>
+    </div>
+
+    <div class="stats-container">
+        <div class="stat-box">
+            <div class="stat-label">SCORE</div>
+            <div class="stat-value" id="score">0</div>
+        </div>
+        <div class="stat-box" id="combo-box">
+            <div class="stat-label">COMBO</div>
+            <div class="stat-value" id="combo">x0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">BEST</div>
+            <div class="stat-value" id="best">0</div>
+        </div>
+    </div>
+
+    <div class="game-area">
+        <div class="feedback-text" id="feedback"></div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="hint-text">Tap when the cursor hits the glow</div>
+    </div>
+
+    <button class="tap-button" id="tapBtn">
+        <span>👤 TAP ANYWHERE</span>
+    </button>
+
+    <script>
+        // Telegram WebApp sozlamalari
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.expand(); // Ekran loyihasini to'liq yoyish
+            tg.ready();
+        }
+
+        function tgClose() {
+            if (tg) tg.close();
+        }
+
+        // Canvas elementlari
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Canvas o'lchamini moslashtirish (Retina ekranlar uchun ham silliq chiqadi)
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        // O'yin o'zgaruvchilari
+        let score = 0;
+        let combo = 0;
+        let best = localStorage.getItem('perfect_timing_best') || 0;
+        document.getElementById('best').innerText = best;
+
+        // Kursor va nishon (Glow) parametrlari
+        let cursorX = 0;
+        let cursorSpeed = 4; // Kursor tezligi
+        let direction = 1;  // 1 o'ngga, -1 chapga
+
+        // Glow nishon bloki o'rtada joylashgan
+        const trackHeight = 36;
+        const targetWidth = 30;
+        const perfectZoneWidth = 8; // "Perfect" uchun juda kichik markaziy hudud
+
+        // O'yin holatini yangilab turish (Animation Loop)
+        function update() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            // Kursorni harakatlantirish
+            cursorX += cursorSpeed * direction;
+
+            // Devorga tekkanda qaytish
+            if (cursorX >= width - 10) {
+                direction = -1;
+            } else if (cursorX <= 10) {
+                direction = 1;
+            }
+
+            // Chizish jarayoni
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Orqa fondagi asosiy chiziq (Track)
+            ctx.fillStyle = '#181622';
+            ctx.beginPath();
+            ctx.roundRect(0, (height - trackHeight) / 2, width, trackHeight, 10);
+            ctx.fill();
+
+            // 2. Nishon (Glow bloki) - Markazda joylashgan
+            const targetX = (width - targetWidth) / 2;
+            const targetY = (height - trackHeight) / 2;
+
+            // Neon nurlanish effekti (Glow)
+            ctx.shadowColor = '#4ef2d2';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#4ef2d2';
+            ctx.beginPath();
+            ctx.roundRect(targetX, targetY, targetWidth, trackHeight, 8);
+            ctx.fill();
+
+            // Soyani o'chirish (boshqa elementlarga ta'sir qilmasligi uchun)
+            ctx.shadowBlur = 0;
+
+            // 3. Harakatlanuvchi kursor (Oq chiziq)
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.roundRect(cursorX - 2, (height - trackHeight - 8) / 2, 4, trackHeight + 8, 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(update);
+        }
+
+        // Ekran yoki tugma bosilgandagi logika
+        function handleTap() {
+            const width = canvas.width / window.devicePixelRatio;
+            const targetX = (width - targetWidth) / 2;
+            const targetCenter = width / 2;
+
+            // Masofani hisoblash (Kursor markazdan qanchalik uzoqligi)
+            const distance = Math.abs(cursorX - targetCenter);
+
+            const feedbackEl = document.getElementById('feedback');
+            const comboBox = document.getElementById('combo-box');
+
+            feedbackEl.className = 'feedback-text'; // Klasni tozalash
+            void feedbackEl.offsetWidth; // Animatsiyani qayta ishga tushirish uchun trigger
+
+            if (distance <= perfectZoneWidth / 2) {
+                // PERFECT
+                score += 150 + (combo * 10);
+                combo++;
+                feedbackEl.innerText = "PERFECT";
+                feedbackEl.classList.add('feedback-perfect');
+                triggerHaptic('light');
+            } else if (distance <= targetWidth / 2) {
+                // GOOD
+                score += 50;
+                combo++;
+                feedbackEl.innerText = "GOOD";
+                feedbackEl.classList.add('feedback-good');
+                triggerHaptic('light');
+            } else {
+                // MISS
+                combo = 0;
+                feedbackEl.innerText = "MISS";
+                feedbackEl.classList.add('feedback-miss');
+                triggerHaptic('heavy');
+            }
+
+            // Tezlikni combo ko'paygan sari biroz oshirish (O'yin qiziq bo'lishi uchun)
+            cursorSpeed = 4 + Math.min(Math.floor(combo / 3), 4);
+
+            // UI ni yangilash
+            document.getElementById('score').innerText = score;
+            document.getElementById('combo').innerText = 'x' + combo;
+
+            if (combo > 0) {
+                comboBox.classList.add('combo-active');
+            } else {
+                comboBox.classList.remove('combo-active');
+            }
+
+            // Rekordni tekshirish
+            if (score > best) {
+                best = score;
+                localStorage.setItem('perfect_timing_best', best);
+                document.getElementById('best').innerText = best;
+            }
+        }
+
+        // Telegram Vibratsiya funksiyasi
+        function triggerHaptic(style) {
+            if (tg && tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred(style);
+            }
+        }
+
+        // O'yinni yangitdan boshlash
+        function resetGame() {
+            score = 0;
+            combo = 0;
+            cursorSpeed = 4;
+            document.getElementById('score').innerText = '0';
+            document.getElementById('combo').innerText = 'x0';
+            document.getElementById('combo-box').classList.remove('combo-active');
+            document.getElementById('feedback').innerText = '';
+            triggerHaptic('medium');
+        }
+
+        // Event Listeners (Tegish hodisalari)
+        document.getElementById('tapBtn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleTap();
+        });
+        document.getElementById('tapBtn').addEventListener('mousedown', (e) => {
+            handleTap();
+        });
+
+        // Butun ekran bo'ylab bosganda ham ishlashi uchun (pastki tugmadan tashqari ham)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') handleTap();
+        });
+
+        // O'yinni ishga tushirish
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        cursorX = canvas.width / window.devicePixelRatio / 2 - 50; // Boshlang'ich kursor o'rni
+        update();
+    </script>
+</body>
+</html>
